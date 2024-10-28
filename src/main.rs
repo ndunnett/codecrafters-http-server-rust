@@ -1,20 +1,18 @@
-use std::io::Write;
-#[allow(unused_imports)]
-use std::net::TcpListener;
+#![allow(dead_code)]
+mod error;
+mod prelude;
+mod request;
+mod response;
+mod router;
+mod server;
 
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
+use crate::{prelude::*, server::Server};
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(mut stream) => {
-                println!("accepted new connection");
-                let response = "HTTP/1.1 200 OK\r\n\r\n";
-                let _ = stream.write_all(response.as_bytes());
-            }
-            Err(e) => {
-                println!("error: {}", e);
-            }
-        }
+fn main() -> Result<()> {
+    if let Err(e) = Server::run("127.0.0.1", 4221) {
+        eprintln!("{e}");
+        std::process::exit(1)
+    } else {
+        std::process::exit(0)
     }
 }
