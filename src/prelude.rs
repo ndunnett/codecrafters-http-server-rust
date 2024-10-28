@@ -76,15 +76,17 @@ impl TryFrom<&str> for Method {
 
 #[derive(Debug, Clone)]
 pub enum MimeType {
-    TextPlain,
-    TextHtml,
+    PlainText,
+    Html,
+    OctetStream,
 }
 
 impl fmt::Display for MimeType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::TextPlain => write!(f, "text/plain"),
-            Self::TextHtml => write!(f, "text/html"),
+            Self::PlainText => write!(f, "text/plain"),
+            Self::Html => write!(f, "text/html"),
+            Self::OctetStream => write!(f, "application/octet-stream"),
         }
     }
 }

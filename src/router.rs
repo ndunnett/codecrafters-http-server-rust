@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fs, path::Path};
 
 use regex::Regex;
 
@@ -7,10 +7,11 @@ use crate::prelude::*;
 type Context = HashMap<String, String>;
 type RouteHandler = fn(&Request, Context) -> Result<Response>;
 
-const ROUTES: [(&str, RouteHandler); 3] = [
+const ROUTES: [(&str, RouteHandler); 4] = [
     ("/", home),
     (r#"/echo/{(?<message>\w+)}"#, echo),
     ("/user-agent", user_agent),
+    (r#"/files/{(?<filename>[\w\-_\.]+)}"#, serve_file),
 ];
 
 #[derive(Clone)]
@@ -114,12 +115,12 @@ impl<'a> Router<'a> {
                     Response::new(
                         StatusCode::InternalError,
                         CONTENT_INTERNAL_ERROR,
-                        MimeType::TextHtml,
+                        MimeType::Html,
                     )
                 }
             }
         } else {
-            Response::new(StatusCode::NotFound, CONTENT_NOT_FOUND, MimeType::TextHtml)
+            Response::new(StatusCode::NotFound, CONTENT_NOT_FOUND, MimeType::Html)
         }
     }
 
@@ -132,16 +133,12 @@ impl<'a> Router<'a> {
 }
 
 fn home(_: &Request, _: Context) -> Result<Response> {
-    Ok(Response::new(
-        StatusCode::Ok,
-        CONTENT_HOME,
-        MimeType::TextHtml,
-    ))
+    Ok(Response::new(StatusCode::Ok, CONTENT_HOME, MimeType::Html))
 }
 
 fn echo(_: &Request, cx: Context) -> Result<Response> {
     if let Some(message) = cx.get("message") {
-        Ok(Response::new(StatusCode::Ok, message, MimeType::TextPlain))
+        Ok(Response::new(StatusCode::Ok, message, MimeType::PlainText))
     } else {
         Err("Failed to get message from context.".into())
     }
@@ -152,11 +149,57 @@ fn user_agent(rq: &Request, _: Context) -> Result<Response> {
         Ok(Response::new(
             StatusCode::Ok,
             user_agent,
-            MimeType::TextPlain,
+            MimeType::PlainText,
         ))
     } else {
         Err("Failed to get user agent from request headers.".into())
     }
+}
+
+fn serve_file(_: &Request, cx: Context) -> Result<Response> {
+    if let Some(filename) = cx.get("filename") {
+        let path = Path::new(filename);
+
+        match fs::read_to_string(path) {
+            Ok(contents) => Ok(Response::new(
+                StatusCode::Ok,
+                &contents,
+                MimeType::OctetStream,
+            )),
+            Err(_) => Ok(Response::new(
+                StatusCode::NotFound,
+                CONTENT_NOT_FOUND,
+                MimeType::Html,
+            )),
+        }
+    } else {
+        Err("Failed to get filename from context.".into())
+    }
+    // // Construct the full file path, if "/" the use index.html
+    // let file_path = if file_path == "/" {
+    //     format!("{}/index.html", ROOT_DIR)
+    // } else {
+    //     format!("{}/{}", ROOT_DIR, &file_path[1..])
+    // };
+
+    // let path = Path::new(&file_path);
+
+    // // Generate the HTTP response
+    // let response = match fs::read_to_string(&path) {
+    //     Ok(contents) => format!(
+    //         "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+    //         contents.len(),
+    //         contents
+    //     ),
+    //     Err(_) => {
+    //         let not_found = "404 Not Found.";
+    //         format!(
+    //             "HTTP/1.1 404 NOT FOUND\r\nContent-Length: {}\r\n\r\n{}",
+    //             not_found.len(),
+    //             not_found
+    //         )
+    //     }
+    // };
 }
 
 const CONTENT_HOME: &str = r#"<!DOCTYPE html>
