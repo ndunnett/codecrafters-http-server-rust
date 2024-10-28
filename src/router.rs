@@ -13,6 +13,7 @@ const ROUTES: [(&str, RouteHandler); 3] = [
     ("/user-agent", user_agent),
 ];
 
+#[derive(Clone)]
 struct Node<'a> {
     endpoint: Option<RouteHandler>,
     static_paths: HashMap<&'a str, Node<'a>>,
@@ -87,6 +88,7 @@ impl<'a> Node<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct Router<'a> {
     root: Node<'a>,
 }

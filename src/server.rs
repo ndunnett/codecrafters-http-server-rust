@@ -1,6 +1,7 @@
 use std::{
     io::{BufRead, BufReader, Write},
     net::TcpListener,
+    thread,
 };
 
 use crate::{prelude::*, router::Router};
@@ -13,25 +14,28 @@ impl Server {
         let router = Router::build();
 
         for stream in listener.incoming() {
-            println!("{:-<30}", "");
+            let router = router.clone();
 
-            let mut stream = stream?;
+            thread::spawn(move || {
+                println!("{:-<30}", "");
+                let mut stream = stream.unwrap();
+                let reader = BufReader::new(&mut stream);
 
-            let reader = BufReader::new(&mut stream);
-            let s = reader
-                .lines()
-                .map_while(|line| line.ok())
-                .take_while(|line| !line.is_empty())
-                .collect::<Vec<_>>()
-                .join("\r\n");
+                let s = reader
+                    .lines()
+                    .map_while(|line| line.ok())
+                    .take_while(|line| !line.is_empty())
+                    .collect::<Vec<_>>()
+                    .join("\r\n");
 
-            let request = Request::parse(&s)?;
-            println!("{request}");
+                let request = Request::parse(&s).unwrap();
+                println!("{request}");
 
-            let response = router.handle(&request);
-            println!("{response}");
+                let response = router.handle(&request);
+                println!("{response}");
 
-            stream.write_all(response.as_bytes())?;
+                stream.write_all(response.as_bytes()).unwrap();
+            });
         }
 
         Ok(())
