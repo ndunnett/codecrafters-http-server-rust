@@ -1,30 +1,6 @@
-use std::{
-    collections::HashMap,
-    fmt,
-    io::{BufRead, BufReader},
-    net::TcpStream,
-};
+use std::{collections::HashMap, fmt};
 
 use crate::prelude::*;
-
-fn read_section(reader: &mut BufReader<&mut TcpStream>) -> Result<String> {
-    let mut buffer = Vec::new();
-
-    loop {
-        match reader.read_until(b'\n', &mut buffer) {
-            Ok(0) => break,
-            Ok(_) if buffer.ends_with(b"\r\n") => break,
-            Err(e) => return Err(e.into()),
-            _ => {
-                if buffer.len() > 1024 {
-                    return Err("Request exceeds 1024 bytes.".into());
-                }
-            }
-        }
-    }
-
-    Ok(String::from_utf8(buffer)?.trim().to_string())
-}
 
 #[derive(Debug)]
 pub struct Request {
@@ -36,11 +12,13 @@ pub struct Request {
 }
 
 impl Request {
-    pub fn parse(stream: &mut TcpStream) -> Result<Self> {
-        let mut reader = BufReader::new(stream);
+    pub fn parse(request: &str) -> Result<Self> {
+        let mut header_lines = request.lines();
 
         let (method, uri, protocol) = {
-            let status_line = read_section(&mut reader)?;
+            let status_line = header_lines
+                .next()
+                .ok_or(Error::Generic("Failed to parse status line.".into()))?;
 
             match status_line.split(" ").collect::<Vec<_>>()[..] {
                 [method, uri, protocol] => (
@@ -49,16 +27,15 @@ impl Request {
                     Protocol::try_from(protocol)?,
                 ),
                 _ => {
-                    return Err("Failed to parse request line.".into());
+                    return Err("Failed to parse status line.".into());
                 }
             }
         };
 
         let headers = {
-            let section = read_section(&mut reader)?;
             let mut headers = HashMap::new();
 
-            for line in section.lines() {
+            for line in header_lines {
                 if let Some((k, v)) = line.split_once(": ") {
                     headers.insert(k.into(), v.into());
                 } else {
@@ -69,7 +46,7 @@ impl Request {
             headers
         };
 
-        let body = read_section(&mut reader)?;
+        let body = String::from("");
 
         Ok(Self {
             method,

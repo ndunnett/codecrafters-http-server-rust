@@ -7,7 +7,11 @@ use crate::prelude::*;
 type Context = HashMap<String, String>;
 type RouteHandler = fn(&Request, Context) -> Result<Response>;
 
-const ROUTES: [(&str, RouteHandler); 2] = [("/", home), (r#"/echo/{(?<message>\w+)}"#, echo)];
+const ROUTES: [(&str, RouteHandler); 3] = [
+    ("/", home),
+    (r#"/echo/{(?<message>\w+)}"#, echo),
+    ("/user-agent", user_agent),
+];
 
 struct Node<'a> {
     endpoint: Option<RouteHandler>,
@@ -125,6 +129,14 @@ impl<'a> Router<'a> {
     }
 }
 
+fn home(_: &Request, _: Context) -> Result<Response> {
+    Ok(Response::new(
+        StatusCode::Ok,
+        CONTENT_HOME,
+        MimeType::TextHtml,
+    ))
+}
+
 fn echo(_: &Request, cx: Context) -> Result<Response> {
     if let Some(message) = cx.get("message") {
         Ok(Response::new(StatusCode::Ok, message, MimeType::TextPlain))
@@ -133,12 +145,16 @@ fn echo(_: &Request, cx: Context) -> Result<Response> {
     }
 }
 
-fn home(_: &Request, _: Context) -> Result<Response> {
-    Ok(Response::new(
-        StatusCode::Ok,
-        CONTENT_HOME,
-        MimeType::TextHtml,
-    ))
+fn user_agent(rq: &Request, _: Context) -> Result<Response> {
+    if let Some(user_agent) = rq.headers.get("User-Agent") {
+        Ok(Response::new(
+            StatusCode::Ok,
+            user_agent,
+            MimeType::TextPlain,
+        ))
+    } else {
+        Err("Failed to get user agent from request headers.".into())
+    }
 }
 
 const CONTENT_HOME: &str = r#"<!DOCTYPE html>
