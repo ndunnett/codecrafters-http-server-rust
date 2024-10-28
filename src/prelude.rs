@@ -73,3 +73,18 @@ impl TryFrom<&str> for Method {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum MimeType {
+    TextPlain,
+    TextHtml,
+}
+
+impl fmt::Display for MimeType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TextPlain => write!(f, "text/plain"),
+            Self::TextHtml => write!(f, "text/html"),
+        }
+    }
+}
