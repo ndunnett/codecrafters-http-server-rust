@@ -110,10 +110,19 @@ impl Request {
         let mut headers = HashMap::new();
         let mut encoding = None;
 
-        if let Some(enc) = self.headers.get("Accept-Encoding") {
-            if let Ok(enc) = Encoding::try_from(enc) {
-                headers.insert("Content-Encoding".to_string(), enc.to_string());
-                encoding = Some(enc);
+        if let Some(schemes) = self.headers.get("Accept-Encoding") {
+            let mut schemes = schemes
+                .split(", ")
+                .filter_map(|s| Encoding::try_from(s).ok())
+                .collect::<Vec<_>>();
+
+            if !schemes.is_empty() {
+                schemes.sort();
+
+                if let Some(scheme) = schemes.first() {
+                    headers.insert("Content-Encoding".to_string(), scheme.to_string());
+                    encoding = Some(scheme.clone());
+                }
             }
         }
 

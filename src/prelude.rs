@@ -150,7 +150,7 @@ impl Content {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub enum Encoding {
     Gzip,
 }
