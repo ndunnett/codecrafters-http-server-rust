@@ -4,7 +4,7 @@ pub use crate::{error::Error, request::Request, response::Response};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Protocol {
     Http1,
 }
@@ -147,5 +147,37 @@ impl Content {
             mime_type,
             body: body.into(),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Encoding {
+    Gzip,
+}
+
+impl fmt::Display for Encoding {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Gzip => write!(f, "gzip"),
+        }
+    }
+}
+
+impl TryFrom<&str> for Encoding {
+    type Error = Error;
+
+    fn try_from(s: &str) -> Result<Self> {
+        match s {
+            "gzip" => Ok(Self::Gzip),
+            _ => Err(Error::Generic("Failed to parse encoding method.".into())),
+        }
+    }
+}
+
+impl TryFrom<&String> for Encoding {
+    type Error = Error;
+
+    fn try_from(s: &String) -> Result<Self> {
+        Self::try_from(s.as_str())
     }
 }

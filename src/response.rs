@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use crate::prelude::*;
 
@@ -7,34 +7,26 @@ pub struct Response {
     pub protocol: Protocol,
     pub code: StatusCode,
     pub content: Option<Content>,
+    pub headers: HashMap<String, String>,
+    pub encoding: Option<Encoding>,
 }
 
 impl Response {
-    pub fn new(code: StatusCode, content: Option<Content>) -> Self {
-        Self {
-            protocol: Protocol::Http1,
-            code,
-            content,
-        }
-    }
-
-    pub fn serve(content: Content) -> Result<Self> {
-        Ok(Self::new(StatusCode::Ok, Some(content)))
-    }
-
-    pub fn empty(code: StatusCode) -> Result<Self> {
-        Ok(Self::new(code, None))
-    }
-
     pub fn to_bytes(&self) -> Vec<u8> {
-        let content = if let Some(content) = &self.content {
-            String::from(content)
-        } else {
-            String::from("\r\n")
-        };
+        let mut lines = Vec::with_capacity(self.headers.len() + 2);
+        lines.push(format!("{} {}", self.protocol, self.code));
 
-        let string = format!("{} {}\r\n{}", self.protocol, self.code, content);
-        string.into_bytes()
+        for header in self.headers.iter().map(|(k, v)| format!("{k}: {v}")) {
+            lines.push(header);
+        }
+
+        if let Some(content) = &self.content {
+            lines.push(content.into());
+        } else {
+            lines.push("\r\n".into());
+        }
+
+        lines.join("\r\n").into_bytes()
     }
 }
 

@@ -105,6 +105,26 @@ impl Request {
             content,
         })
     }
+
+    pub fn response(&self, code: StatusCode, content: Option<Content>) -> Result<Response> {
+        let mut headers = HashMap::new();
+        let mut encoding = None;
+
+        if let Some(enc) = self.headers.get("Accept-Encoding") {
+            if let Ok(enc) = Encoding::try_from(enc) {
+                headers.insert("Content-Encoding".to_string(), enc.to_string());
+                encoding = Some(enc);
+            }
+        }
+
+        Ok(Response {
+            protocol: self.protocol.clone(),
+            code,
+            content,
+            headers,
+            encoding,
+        })
+    }
 }
 
 impl fmt::Display for Request {

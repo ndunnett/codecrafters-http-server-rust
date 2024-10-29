@@ -21,15 +21,15 @@ fn method_guard(rq: &Request, methods: &[Method]) -> Option<Result<Response>> {
     if methods.contains(&rq.method) {
         None
     } else {
-        Some(Response::empty(StatusCode::MethodNotAllowed))
+        Some(rq.response(StatusCode::MethodNotAllowed, None))
     }
 }
 
-fn path_guard(path: &Path) -> Result<Option<Result<Response>>> {
+fn path_guard(rq: &Request, path: &Path) -> Result<Option<Result<Response>>> {
     if path::absolute(path)?.starts_with(env::current_dir()?) {
         Ok(None)
     } else {
-        Ok(Some(Response::empty(StatusCode::Forbidden)))
+        Ok(Some(rq.response(StatusCode::Forbidden, None)))
     }
 }
 
@@ -38,7 +38,7 @@ fn home(rq: &Request, _: Context) -> Result<Response> {
         return reponse;
     }
 
-    Response::empty(StatusCode::Ok)
+    rq.response(StatusCode::Ok, None)
 }
 
 fn echo(rq: &Request, cx: Context) -> Result<Response> {
@@ -48,7 +48,7 @@ fn echo(rq: &Request, cx: Context) -> Result<Response> {
 
     if let Some(message) = cx.get("message") {
         let content = Content::new(MimeType::PlainText, message);
-        Response::serve(content)
+        rq.response(StatusCode::Ok, Some(content))
     } else {
         Err("Failed to get message from context.".into())
     }
@@ -61,7 +61,7 @@ fn user_agent(rq: &Request, _: Context) -> Result<Response> {
 
     if let Some(user_agent) = rq.headers.get("User-Agent") {
         let content = Content::new(MimeType::PlainText, user_agent);
-        Response::serve(content)
+        rq.response(StatusCode::Ok, Some(content))
     } else {
         Err("Failed to get user agent from request headers.".into())
     }
@@ -74,22 +74,22 @@ fn files(rq: &Request, cx: Context) -> Result<Response> {
     }
 }
 
-fn serve_file(_: &Request, cx: Context) -> Result<Response> {
+fn serve_file(rq: &Request, cx: Context) -> Result<Response> {
     let path = Path::new(cx.get("filename").ok_or(Error::Generic(
         "Failed to get filename from context.".into(),
     ))?);
 
     if !path.exists() {
-        return Response::empty(StatusCode::NotFound);
+        return rq.response(StatusCode::NotFound, None);
     }
 
-    if let Some(reponse) = path_guard(path)? {
+    if let Some(reponse) = path_guard(rq, path)? {
         return reponse;
     }
 
     let file = fs::read_to_string(path)?;
     let content = Content::new(MimeType::OctetStream, &file);
-    Response::serve(content)
+    rq.response(StatusCode::Ok, Some(content))
 }
 
 fn upload_file(rq: &Request, cx: Context) -> Result<Response> {
@@ -97,7 +97,7 @@ fn upload_file(rq: &Request, cx: Context) -> Result<Response> {
         "Failed to get filename from context.".into(),
     ))?);
 
-    if let Some(reponse) = path_guard(path)? {
+    if let Some(reponse) = path_guard(rq, path)? {
         return reponse;
     }
 
@@ -109,5 +109,5 @@ fn upload_file(rq: &Request, cx: Context) -> Result<Response> {
 
     let mut file = File::create(path)?;
     file.write_all(bytes)?;
-    Response::empty(StatusCode::Created)
+    rq.response(StatusCode::Created, None)
 }

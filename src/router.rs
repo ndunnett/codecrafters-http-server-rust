@@ -24,17 +24,17 @@ impl<'a> Router<'a> {
         Self { root }
     }
 
-    pub fn handle(&self, request: &Request) -> Response {
-        if let Some((handler, context)) = self.get(&request.uri) {
-            match handler(request, context) {
+    pub fn handle(&self, rq: &Request) -> Response {
+        if let Some((handler, context)) = self.get(&rq.uri) {
+            match handler(rq, context) {
                 Ok(response) => response,
                 Err(e) => {
                     eprintln!("{e:?}");
-                    Response::empty(StatusCode::InternalError).unwrap()
+                    rq.response(StatusCode::InternalError, None).unwrap()
                 }
             }
         } else {
-            Response::empty(StatusCode::NotFound).unwrap()
+            rq.response(StatusCode::NotFound, None).unwrap()
         }
     }
 
