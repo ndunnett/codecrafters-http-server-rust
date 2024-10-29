@@ -1,6 +1,33 @@
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::HashMap,
+    fmt,
+    io::{BufRead, BufReader, Read},
+    net::TcpStream,
+};
 
 use crate::prelude::*;
+
+const MAX_REQUEST_SIZE: usize = 4096;
+
+fn read_until(reader: &mut BufReader<&mut TcpStream>, bytes: &[u8]) -> Result<String> {
+    let mut buffer = Vec::new();
+
+    loop {
+        match reader.read_until(bytes[bytes.len() - 1], &mut buffer) {
+            Ok(0) => break,
+            Ok(_) if buffer.ends_with(bytes) => break,
+            Err(e) => return Err(e.into()),
+            _ if buffer.len() > MAX_REQUEST_SIZE => {
+                return Err(Error::Generic(format!(
+                    "Request exceeds {MAX_REQUEST_SIZE} bytes."
+                )))
+            }
+            _ => {}
+        }
+    }
+
+    Ok(String::from_utf8(buffer)?)
+}
 
 #[derive(Debug)]
 pub struct Request {
@@ -8,15 +35,18 @@ pub struct Request {
     pub uri: String,
     pub protocol: Protocol,
     pub headers: HashMap<String, String>,
-    pub body: String,
+    pub content: Option<Content>,
 }
 
 impl Request {
-    pub fn parse(request: &str) -> Result<Self> {
-        let mut header_lines = request.lines();
+    pub fn parse(stream: &mut TcpStream) -> Result<Self> {
+        let mut reader = BufReader::new(stream);
+
+        let header = read_until(&mut reader, b"\r\n\r\n")?;
+        let mut lines = header.trim().lines();
 
         let (method, uri, protocol) = {
-            let status_line = header_lines
+            let status_line = lines
                 .next()
                 .ok_or(Error::Generic("Failed to parse status line.".into()))?;
 
@@ -35,9 +65,9 @@ impl Request {
         let headers = {
             let mut headers = HashMap::new();
 
-            for line in header_lines {
+            for line in lines {
                 if let Some((k, v)) = line.split_once(": ") {
-                    headers.insert(k.into(), v.into());
+                    headers.insert(String::from(k), String::from(v));
                 } else {
                     break;
                 }
@@ -46,20 +76,45 @@ impl Request {
             headers
         };
 
-        let body = String::from("");
+        let content = {
+            match (headers.get("Content-Type"), headers.get("Content-Length")) {
+                (Some(mime_type), Some(length)) => {
+                    let length = length.parse::<usize>()?;
+                    let mut buffer = [0; MAX_REQUEST_SIZE];
+                    let mut bytes = 0;
+
+                    while bytes < length {
+                        match reader.read(&mut buffer)? {
+                            0 => break,
+                            n => bytes += n,
+                        }
+                    }
+
+                    let body = String::from_utf8(buffer[0..bytes].to_vec())?;
+                    Some(Content::new(mime_type.try_into()?, &body))
+                }
+                _ => None,
+            }
+        };
 
         Ok(Self {
             method,
             uri,
             protocol,
             headers,
-            body,
+            content,
         })
     }
 }
 
 impl fmt::Display for Request {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Request: {} {} {}", self.method, self.uri, self.protocol)
+        write!(f, "Request: {} {} {}", self.method, self.uri, self.protocol)?;
+
+        if let Some(content) = &self.content {
+            write!(f, " -> {content}")?;
+        }
+
+        Ok(())
     }
 }

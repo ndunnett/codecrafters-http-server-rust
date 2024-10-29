@@ -31,7 +31,10 @@ impl TryFrom<&str> for Protocol {
 #[derive(Debug, Clone)]
 pub enum StatusCode {
     Ok = 200,
+    Created = 201,
+    Forbidden = 403,
     NotFound = 404,
+    MethodNotAllowed = 405,
     InternalError = 500,
 }
 
@@ -39,7 +42,10 @@ impl fmt::Display for StatusCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match self {
             Self::Ok => "OK",
+            Self::Created => "Created",
+            Self::Forbidden => "Forbidden",
             Self::NotFound => "Not Found",
+            Self::MethodNotAllowed => "Method Not Allowed",
             Self::InternalError => "Internal Error",
         };
 
@@ -47,7 +53,7 @@ impl fmt::Display for StatusCode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Method {
     Get,
     Post,
@@ -87,6 +93,59 @@ impl fmt::Display for MimeType {
             Self::PlainText => write!(f, "text/plain"),
             Self::Html => write!(f, "text/html"),
             Self::OctetStream => write!(f, "application/octet-stream"),
+        }
+    }
+}
+
+impl TryFrom<&str> for MimeType {
+    type Error = Error;
+
+    fn try_from(s: &str) -> Result<Self> {
+        match s {
+            "text/plain" => Ok(Self::PlainText),
+            "text/html" => Ok(Self::Html),
+            "application/octet-stream" => Ok(Self::OctetStream),
+            _ => Err(Error::Generic("Failed to parse mime type.".into())),
+        }
+    }
+}
+
+impl TryFrom<&String> for MimeType {
+    type Error = Error;
+
+    fn try_from(s: &String) -> Result<Self> {
+        Self::try_from(s.as_str())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Content {
+    pub mime_type: MimeType,
+    pub body: String,
+}
+
+impl fmt::Display for Content {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Content({}, {} B)", self.mime_type, self.body.len())
+    }
+}
+
+impl From<&Content> for String {
+    fn from(content: &Content) -> Self {
+        format!(
+            "Content-Type: {}\r\nContent-Length: {}\r\n\r\n{}",
+            content.mime_type,
+            content.body.len(),
+            content.body
+        )
+    }
+}
+
+impl Content {
+    pub fn new(mime_type: MimeType, body: &str) -> Self {
+        Self {
+            mime_type,
+            body: body.into(),
         }
     }
 }

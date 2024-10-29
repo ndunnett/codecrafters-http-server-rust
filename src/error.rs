@@ -1,9 +1,11 @@
+use core::num;
 use std::{error, fmt, io, string};
 
 pub enum Error {
     Generic(String),
     IO(io::Error),
-    Utf8(string::FromUtf8Error),
+    FromUtf8(string::FromUtf8Error),
+    ParseInt(num::ParseIntError),
 }
 
 impl error::Error for Error {
@@ -11,7 +13,8 @@ impl error::Error for Error {
         match self {
             Self::Generic(_) => None,
             Self::IO(e) => Some(e),
-            Self::Utf8(e) => Some(e),
+            Self::FromUtf8(e) => Some(e),
+            Self::ParseInt(e) => Some(e),
         }
     }
 }
@@ -21,7 +24,8 @@ impl fmt::Display for Error {
         match self {
             Self::Generic(s) => write!(f, "Error: {s}"),
             Self::IO(e) => write!(f, "IO Error: {e}"),
-            Self::Utf8(e) => write!(f, "UTF-8 Error: {e}"),
+            Self::FromUtf8(e) => write!(f, "UTF-8 Error: {e}"),
+            Self::ParseInt(e) => write!(f, "Parsing Error: {e}"),
         }
     }
 }
@@ -31,7 +35,8 @@ impl fmt::Debug for Error {
         let base = match self {
             Self::Generic(s) => s.clone(),
             Self::IO(e) => format!("{e:#?}"),
-            Self::Utf8(e) => format!("{e:#?}"),
+            Self::FromUtf8(e) => format!("{e:#?}"),
+            Self::ParseInt(e) => format!("{e:#?}"),
         };
 
         let s = base
@@ -58,6 +63,12 @@ impl From<io::Error> for Error {
 
 impl From<string::FromUtf8Error> for Error {
     fn from(e: string::FromUtf8Error) -> Self {
-        Self::Utf8(e)
+        Self::FromUtf8(e)
+    }
+}
+
+impl From<num::ParseIntError> for Error {
+    fn from(e: num::ParseIntError) -> Self {
+        Self::ParseInt(e)
     }
 }

@@ -4,22 +4,17 @@ mod prelude;
 mod request;
 mod response;
 mod router;
+mod routes;
 mod server;
 
-use std::env;
+use crate::prelude::*;
 
-use crate::{prelude::*, server::Server};
+fn run() -> Result<()> {
+    server::Server::new()?.run()
+}
 
-fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
-
-    if let Some(cmd) = args.get(1) {
-        if cmd == "--directory" {
-            env::set_current_dir(args.get(2).unwrap()).unwrap();
-        }
-    }
-
-    if let Err(e) = Server::run("127.0.0.1", 4221) {
+fn main() {
+    if let Err(e) = run() {
         eprintln!("{e}");
         std::process::exit(1)
     } else {
