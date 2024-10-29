@@ -1,4 +1,5 @@
-use std::{collections::HashMap, fmt};
+use flate2::{write::GzEncoder, Compression};
+use std::{collections::HashMap, fmt, io::Write};
 
 use crate::prelude::*;
 
@@ -12,21 +13,49 @@ pub struct Response {
 }
 
 impl Response {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut lines = Vec::with_capacity(self.headers.len() + 2);
-        lines.push(format!("{} {}", self.protocol, self.code));
+    pub fn encode(&mut self) -> Vec<u8> {
+        let mut output: Vec<u8> = Vec::new();
 
-        for header in self.headers.iter().map(|(k, v)| format!("{k}: {v}")) {
-            lines.push(header);
-        }
+        output.extend(format!("{} {}\r\n", self.protocol, self.code).as_bytes());
+        output.extend(
+            self.headers
+                .iter()
+                .flat_map(|(k, v)| format!("{k}: {v}\r\n").into_bytes()),
+        );
 
         if let Some(content) = &self.content {
-            lines.push(content.into());
+            let mut buffer = Vec::new();
+            let unencoded = content.body.as_bytes();
+
+            let body = if self.encoding == Some(Encoding::Gzip) {
+                let gzip_ok = {
+                    let mut encoder = GzEncoder::new(&mut buffer, Compression::default());
+
+                    encoder
+                        .write_all(unencoded)
+                        .and_then(|_| encoder.try_finish())
+                        .is_ok()
+                };
+
+                if gzip_ok {
+                    output.extend(format!("Content-Encoding: {}\r\n", Encoding::Gzip).as_bytes());
+                    &buffer
+                } else {
+                    unencoded
+                }
+            } else {
+                unencoded
+            };
+
+            output.extend(format!("Content-Type: {}\r\n", content.mime_type).as_bytes());
+            output.extend(format!("Content-Length: {}\r\n", body.len()).as_bytes());
+            output.extend(b"\r\n");
+            output.extend(body);
         } else {
-            lines.push("\r\n".into());
+            output.extend(b"\r\n");
         }
 
-        lines.join("\r\n").into_bytes()
+        output
     }
 }
 

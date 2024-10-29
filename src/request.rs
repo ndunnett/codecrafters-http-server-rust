@@ -107,7 +107,7 @@ impl Request {
     }
 
     pub fn response(&self, code: StatusCode, content: Option<Content>) -> Result<Response> {
-        let mut headers = HashMap::new();
+        let headers = HashMap::new();
         let mut encoding = None;
 
         if let Some(schemes) = self.headers.get("Accept-Encoding") {
@@ -116,14 +116,8 @@ impl Request {
                 .filter_map(|s| Encoding::try_from(s).ok())
                 .collect::<Vec<_>>();
 
-            if !schemes.is_empty() {
-                schemes.sort();
-
-                if let Some(scheme) = schemes.first() {
-                    headers.insert("Content-Encoding".to_string(), scheme.to_string());
-                    encoding = Some(scheme.clone());
-                }
-            }
+            schemes.sort();
+            encoding = schemes.first().cloned();
         }
 
         Ok(Response {

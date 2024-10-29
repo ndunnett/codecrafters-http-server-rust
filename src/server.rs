@@ -58,10 +58,10 @@ impl Server {
                 let request = Request::parse(&mut stream).unwrap();
                 println!("{request}");
 
-                let response = router.handle(&request);
+                let mut response = router.handle(&request);
                 println!("{response}");
 
-                stream.write_all(&response.to_bytes()).unwrap();
+                stream.write_all(&response.encode()).unwrap();
             });
         }
 
